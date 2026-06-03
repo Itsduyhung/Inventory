@@ -1,9 +1,8 @@
 services:
   - type: web
-    name: inventory-dashboard-backend
+    name: inventory-dashboard
     env: docker
-    dockerfilePath: backend/Dockerfile
-    dockerContext: backend
+    dockerfilePath: Dockerfile
     branch: main
     plan: free
     envVars:
@@ -17,13 +16,3 @@ services:
         value: InventoryDashboard
       - key: Jwt__Audience
         value: InventoryDashboard
-  - type: web
-    name: inventory-dashboard-frontend
-    env: docker
-    dockerfilePath: frontend/Dockerfile
-    dockerContext: frontend
-    branch: main
-    plan: free
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://inventory-dashboard-backend.onrender.com
