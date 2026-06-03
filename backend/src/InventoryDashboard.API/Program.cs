@@ -6,7 +6,15 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
-var builder = WebApplication.CreateBuilder(args);
+// FIX LỖI CRASH 139: Tạo tùy chọn builder tắt tính năng giám sát reload cấu hình file
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args
+});
+
+builder.Configuration.Sources.Clear();
+builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+                     .AddEnvironmentVariables();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -56,24 +64,28 @@ builder.Services.AddAuthorization();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Cấu hình CORS mở rộng cho cả Render và Local
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.SetIsOriginAllowed(origin => true) // Cho phép nhận req từ chính domain Render gom chung
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// Cho phép hiển thị Swagger trên Render để bạn dễ test API từ xa
+if (app.Environment.IsDevelopment() || builder.Configuration["EnableSwagger"] == "true")
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Phục vụ các file tĩnh của Frontend (Vite)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -81,6 +93,8 @@ app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Khi bấm F5 ở Frontend (Vite Router), .NET sẽ tự động điều hướng về lại index.html thay vì lỗi 404
 app.MapFallbackToFile("index.html");
 
 await DataSeeder.SeedAsync(app.Services);

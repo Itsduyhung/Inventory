@@ -1,4 +1,6 @@
-# Build frontend
+# ==========================================
+# STAGE 1: BUILD FRONTEND (Vite)
+# ==========================================
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
@@ -8,30 +10,43 @@ ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
-# Build backend
+# ==========================================
+# STAGE 2: BUILD BACKEND (.NET)
+# ==========================================
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# SỬA TẠI ĐÂY: Copy từng file .csproj vào đúng thư mục con của nó để không bị mất cấu trúc
+# Sao chép và giữ đúng cấu trúc các tầng dự án của bạn
 COPY backend/src/InventoryDashboard.Domain/InventoryDashboard.Domain.csproj backend/src/InventoryDashboard.Domain/
 COPY backend/src/InventoryDashboard.Application/InventoryDashboard.Application.csproj backend/src/InventoryDashboard.Application/
 COPY backend/src/InventoryDashboard.Infrastructure/InventoryDashboard.Infrastructure.csproj backend/src/InventoryDashboard.Infrastructure/
 COPY backend/src/InventoryDashboard.API/InventoryDashboard.API.csproj backend/src/InventoryDashboard.API/
 
-# Bây giờ lệnh restore này sẽ chạy thành công vì file đã nằm đúng chỗ
+# Tiến hành khôi phục các thư viện NuGet
 RUN dotnet restore backend/src/InventoryDashboard.API/InventoryDashboard.API.csproj
 
+# Copy toàn bộ code và thực hiện publish ra file chạy chính thức
 COPY backend/src/ ./backend/src/
 WORKDIR /src/backend/src/InventoryDashboard.API
 RUN dotnet publish "InventoryDashboard.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# Runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+# ==========================================
+# STAGE 3: RUNTIME IMAGE (GOM CHUNG CHẠY THỰC TẾ)
+# ==========================================
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-jammy-chiseled AS runtime
 WORKDIR /app
+
+# Tắt triệt để cơ chế File Watcher trên môi trường Linux nhằm chặn lỗi Status 139
+ENV DOTNET_USE_POLLING_FILE_WATCHER=1
+ENV ASPNETCORE_HOSTINGSTARTUPASSEMBLIES=""
+
+# Copy sản phẩm Backend .NET đã build
 COPY --from=build /app/publish .
+
+# Copy toàn bộ file tĩnh của Frontend (Vite) vào thư mục wwwroot của .NET
 COPY --from=frontend-build /app/frontend/dist ./wwwroot
 
-# Render thường dùng cổng 8080 cho môi trường mạng, bạn có thể để 80 hoặc đổi thành 8080 nhé
+# Cấu hình cổng chạy mặc định tương thích tốt với Render
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 
