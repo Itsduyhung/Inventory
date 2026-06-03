@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: inventory-dashboard-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    branch: main
+    plan: free
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        value: "Host=ep-polished-sunset-a8u7s5hy-pooler.eastus2.azure.neon.tech;Port=5432;Database=neondb;Username=neondb_owner;Password=npg_at61yZJSkCoc"
+      - key: Jwt__Key
+        value: InventoryDashboard_SuperSecret_Key_2026_Min32Chars!
+      - key: Jwt__Issuer
+        value: InventoryDashboard
+      - key: Jwt__Audience
+        value: InventoryDashboard
+  - type: web
+    name: inventory-dashboard-frontend
+    env: docker
+    dockerfilePath: frontend/Dockerfile
+    dockerContext: frontend
+    branch: main
+    plan: free
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://inventory-dashboard-backend.onrender.com
